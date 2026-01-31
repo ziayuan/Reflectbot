@@ -1,0 +1,15 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Data files (contains personal logs)
+diary.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

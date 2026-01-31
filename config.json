@@ -1,0 +1,8 @@
+{
+  "check_interval_minutes": 30,
+  "sleep_start_time": "23:30",
+  "sleep_end_time": "09:30",
+  "daily_summary_time": "00:00",
+  "prompt_message": "{name}，过去 {interval} 分钟你在干什么？有什么感想？",
+  "admin_name": "zy"
+}
