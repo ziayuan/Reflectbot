@@ -55,6 +55,7 @@ ALLOWED_USER_ID=你的TelegramUserID
 }
 ```
 
+
 ### 4. 运行 Bot
 
 推荐使用 `run.sh` 脚本运行，它提供了自动重启功能，能有效防止网络断连导致的程序假死。
@@ -69,3 +70,79 @@ chmod +x run.sh
 ```bash
 python bot.py
 ```
+
+## 部署到服务器 (AWS EC2)与数据同步
+
+为了让 Bot 24小时稳定运行，且保证数据安全（避免服务器单点故障导致数据丢失），推荐使用 **AWS EC2 运行 Bot + 本地定时同步数据** 的方案。
+
+### 1. 服务器环境准备 (AWS EC2)
+
+1.  在 AWS 控制台启动一个 Ubuntu 或 Amazon Linux 实例。
+2.  **安全组 (Security Group)**：只需要开放 SSH (22) 端口，来源限制为你自己的 IP。
+3.  SSH 连接到服务器：
+    ```bash
+    ssh -i "your-key.pem" ubuntu@your-server-ip
+    ```
+4.  安装 Python 和 Git：
+    ```bash
+    sudo apt update
+    sudo apt install python3 python3-pip git -y
+    ```
+
+### 2. 部署代码
+
+在服务器上执行：
+
+```bash
+# 1. 克隆代码
+git clone https://github.com/ziayuan/Reflect-30.git
+cd Reflect-30
+
+# 2. 安装依赖
+pip3 install -r requirements.txt
+
+# 3. 配置 .env
+cp .env.example .env
+nano .env  # 填入你的 TELEGRAM_BOT_TOKEN 和 ALLOWED_USER_ID
+chmod 600 .env  # 保护隐私文件
+```
+
+### 3. 设置后台运行 (Systemd)
+
+使用仓库中提供的 `reflect30.service` 模板来配置系统服务，这样 Bot 会开机自启且崩溃自动重启。
+
+```bash
+# 1. 修改 service 文件中的路径和用户 (如果你的用户名不是 ubuntu 或路径不同)
+nano reflect30.service
+
+# 2. 复制到系统目录
+sudo cp reflect30.service /etc/systemd/system/
+
+# 3. 启动服务
+sudo systemctl daemon-reload
+sudo systemctl enable reflect30
+sudo systemctl start reflect30
+
+# 查看状态
+sudo systemctl status reflect30
+```
+
+### 4. 数据安全与同步 (在本地 Mac 操作)
+
+为了保证隐私和数据安全，建议定期将服务器上的 `diary.json` 同步回本地电脑。
+
+在你的 **本地 Mac** 上设置 `crontab` 定时任务：
+
+1.  打开定时任务编辑器：
+    ```bash
+    crontab -e
+    ```
+
+2.  添加以下行（例如每小时同步一次）：
+    ```bash
+    # 请替换 key 路径、服务器 IP 和本地代码路径
+    0 * * * * scp -i /path/to/your-key.pem ubuntu@your-server-ip:/home/ubuntu/Reflect-30/diary.json /Users/ziyuan/Code/Reflect-30/diary.json
+    ```
+
+这样，即使服务器发生故障，你的日记数据始终在本地有一份最新的备份。
+

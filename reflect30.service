@@ -1,0 +1,15 @@
+[Unit]
+Description=Reflect-30 Telegram Bot
+After=network.target
+
+[Service]
+# Modify these to match your user and installation path
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Reflect-30
+ExecStart=/usr/bin/python3 /home/ubuntu/Reflect-30/bot.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/ubuntu/Reflect-30/.env
+
+[Install]
+WantedBy=multi-user.target

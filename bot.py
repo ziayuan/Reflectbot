@@ -6,9 +6,6 @@ from datetime import datetime, time, timedelta
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
 from telegram.request import HTTPXRequest
 from dotenv import load_dotenv
 
@@ -54,7 +51,6 @@ if ALLOWED_USER_ID:
 # Global state
 is_paused = False
 diary = DiaryManager()
-scheduler = AsyncIOScheduler()
 
 def is_sleeping_time():
     """Check if current time is within sleep range."""
@@ -172,7 +168,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         diary.add_entry(text)
         await update.message.reply_text(f"Recorded at {datetime.now().strftime('%H:%M')}.")
 
-async def periodic_check(application: Application):
+async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
     """Task to check if we should send a reminder."""
     global is_paused
     if is_paused:
@@ -186,11 +182,11 @@ async def periodic_check(application: Application):
 
     message = PROMPT_TEMPLATE.format(name=ADMIN_NAME, interval=CHECK_INTERVAL)
     try:
-        await application.bot.send_message(chat_id=ALLOWED_USER_ID, text=message)
+        await context.bot.send_message(chat_id=ALLOWED_USER_ID, text=message)
     except Exception as e:
         logger.error(f"Failed to send periodic message: {e}")
 
-async def send_daily_summary(application: Application):
+async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE):
     """Send daily summary."""
     if not ALLOWED_USER_ID:
         return
@@ -217,41 +213,40 @@ async def send_daily_summary(application: Application):
             time_str = ts.strftime("%H:%M")
             summary_text += f"⏰ {time_str}: {entry['content']}\n"
 
-    await send_long_message(application.bot, ALLOWED_USER_ID, summary_text)
+    await send_long_message(context.bot, ALLOWED_USER_ID, summary_text)
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Log errors caused by Updates."""
+    logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 
 async def post_init(application: Application):
-    """Send a startup message to the admin."""
+    """Send a startup message to the admin and schedule jobs."""
     if ALLOWED_USER_ID:
         try:
             await application.bot.send_message(chat_id=ALLOWED_USER_ID, text="Reflect-30 Bot 启动成功！🚀")
         except Exception as e:
             logger.error(f"Failed to send startup message: {e}")
 
-    # Add periodic job
-    scheduler.add_job(
-        periodic_check, 
-        IntervalTrigger(minutes=CHECK_INTERVAL), 
-        kwargs={"application": application}
+    # Add periodic reminder job using built-in JobQueue
+    application.job_queue.run_repeating(
+        periodic_check,
+        interval=CHECK_INTERVAL * 60,
+        first=CHECK_INTERVAL * 60,
     )
     
     # Add daily summary job
-    # Parse HH:MM from config for cron trigger
     try:
         sh, sm = map(int, SUMMARY_TIME.split(':'))
-        scheduler.add_job(
-            send_daily_summary,
-            CronTrigger(hour=sh, minute=sm),
-            kwargs={"application": application}
-        )
+        target_time = time(hour=sh, minute=sm)
     except ValueError:
         logger.error("Invalid DAILY_SUMMARY_TIME format. Using default 00:00")
-        scheduler.add_job(
-            send_daily_summary,
-            CronTrigger(hour=0, minute=0),
-            kwargs={"application": application}
-        )
+        target_time = time(hour=0, minute=0)
     
-    scheduler.start()
+    application.job_queue.run_daily(
+        send_daily_summary,
+        time=target_time,
+    )
+    logger.info(f"Jobs scheduled: periodic every {CHECK_INTERVAL}min, daily summary at {target_time}")
 
 def main():
     if not TOKEN:
@@ -261,10 +256,11 @@ def main():
     # Configure request with timeouts
     request = HTTPXRequest(
         connection_pool_size=8,
-        read_timeout=60,
-        write_timeout=60,
-        connect_timeout=30,
-        pool_timeout=None
+        read_timeout=30,
+        write_timeout=30,
+        connect_timeout=20,
+        pool_timeout=10,
+        http_version="1.1",
     )
 
     # Build application
@@ -278,18 +274,19 @@ def main():
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(CommandHandler("summary", summary))
     
-    
     # Text handler (exclude commands)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    # Global error handler — makes all polling/network errors visible in logs
+    application.add_error_handler(error_handler)
+
     # Run bot
-    print("Bot started...")
-    print("Bot started...")
-    # More robust polling parameters
+    logger.info("Bot starting...")
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
-        timeout=30,  # Polling timeout
-        poll_interval=1.0 # Check for updates every 1 second
+        drop_pending_updates=True,
+        timeout=30,
+        poll_interval=2.0,
     )
 
 if __name__ == '__main__':
