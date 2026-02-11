@@ -11,6 +11,8 @@ ExecStart=/home/ubuntu/Reflectbot/venv/bin/python /home/ubuntu/Reflectbot/bot.py
 Restart=always
 RestartSec=10
 EnvironmentFile=/home/ubuntu/Reflectbot/.env
+# Set timezone to Shanghai (Beijing Time)
+Environment=TZ=Asia/Shanghai
 
 [Install]
 WantedBy=multi-user.target
