@@ -6,7 +6,8 @@ After=network.target
 # Modify these to match your user and installation path
 User=ubuntu
 WorkingDirectory=/home/ubuntu/Reflectbot
-ExecStart=/usr/bin/python3 /home/ubuntu/Reflectbot/bot.py
+# Use the python interpreter from the virtual environment
+ExecStart=/home/ubuntu/Reflectbot/venv/bin/python /home/ubuntu/Reflectbot/bot.py
 Restart=always
 RestartSec=10
 EnvironmentFile=/home/ubuntu/Reflectbot/.env
