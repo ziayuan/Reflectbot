@@ -51,21 +51,10 @@ if ALLOWED_USER_ID:
 # Timezone handling
 # Explicitly use Beijing Time (UTC+8) to avoid server timezone issues
 BEIJING_TZ = timedelta(hours=8)
-TZ_INFO = time.timezone if time.timezone else None # For compatibility, but we use explicit offset
 
 def get_now():
     """Get current time in Beijing Time."""
-    # datetime.utcnow() is deprecated, use now(timezone.utc)
-    # But for compatibility and simplicity:
-    return datetime.now(timezone.utc).astimezone(timezone(BEIJING_TZ))
-
-if not hasattr(datetime, 'now'): # Should not happen, just ensuring context
-    from datetime import timezone
-
-# Function needs timezone imported
-from datetime import timezone
-
-def get_now():
+    # Use timezone-aware datetime
     return datetime.now(timezone(BEIJING_TZ))
 
 

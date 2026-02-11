@@ -27,8 +27,13 @@ class DiaryManager:
 
     def add_entry(self, content):
         data = self._load_data()
+        # Use existing BEIJING_TZ definition if imported or define local
+        # Ideally pass timestamp from bot, but for simplicity modify here
+        from datetime import datetime, timezone, timedelta
+        beijing_now = datetime.now(timezone(timedelta(hours=8)))
+        
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": beijing_now.isoformat(),
             "content": content
         }
         data.append(entry)
