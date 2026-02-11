@@ -2,7 +2,7 @@ import logging
 import json
 import os
 import asyncio
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -48,13 +48,35 @@ ALLOWED_USER_ID = os.getenv("ALLOWED_USER_ID")
 if ALLOWED_USER_ID:
     ALLOWED_USER_ID = int(ALLOWED_USER_ID)
 
+# Timezone handling
+# Explicitly use Beijing Time (UTC+8) to avoid server timezone issues
+BEIJING_TZ = timedelta(hours=8)
+TZ_INFO = time.timezone if time.timezone else None # For compatibility, but we use explicit offset
+
+def get_now():
+    """Get current time in Beijing Time."""
+    # datetime.utcnow() is deprecated, use now(timezone.utc)
+    # But for compatibility and simplicity:
+    return datetime.now(timezone.utc).astimezone(timezone(BEIJING_TZ))
+
+if not hasattr(datetime, 'now'): # Should not happen, just ensuring context
+    from datetime import timezone
+
+# Function needs timezone imported
+from datetime import timezone
+
+def get_now():
+    return datetime.now(timezone(BEIJING_TZ))
+
+
 # Global state
 is_paused = False
 diary = DiaryManager()
 
 def is_sleeping_time():
     """Check if current time is within sleep range."""
-    now = datetime.now().time()
+    # Use Beijing Time
+    now = get_now().time()
     try:
         start_t = datetime.strptime(SLEEP_START, "%H:%M").time()
         end_t = datetime.strptime(SLEEP_END, "%H:%M").time()
@@ -132,7 +154,7 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ALLOWED_USER_ID and user.id != ALLOWED_USER_ID:
         return
 
-    target_date = datetime.now()
+    target_date = get_now()
     
     # Check for arguments
     if context.args:
@@ -152,8 +174,13 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         summary_text = f"📅 Summary for {date_str}:\n\n"
         for entry in entries:
-            ts = datetime.fromisoformat(entry['timestamp'])
-            time_str = ts.strftime("%H:%M")
+            try:
+                ts = datetime.fromisoformat(entry['timestamp'])
+                # If timestamp is naive, assume it's Beijing Time (legacy data or previously captured)
+                # If accurate, adjust display
+                time_str = ts.strftime("%H:%M")
+            except:
+                 time_str = "??"
             summary_text += f"⏰ {time_str}: {entry['content']}\n"
     
     await send_long_message(context.bot, update.effective_chat.id, summary_text)
@@ -166,7 +193,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text:
         diary.add_entry(text)
-        await update.message.reply_text(f"Recorded at {datetime.now().strftime('%H:%M')}.")
+        await update.message.reply_text(f"Recorded at {get_now().strftime('%H:%M')}.")
 
 async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
     """Task to check if we should send a reminder."""
@@ -192,9 +219,12 @@ async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Determine which day to summarize
-    # If running at 00:00, summarize yesterday
-    # If running late in the day, summarize today
-    now = datetime.now()
+    # If running at 00:00 (Check scheduled time logic), summarize yesterday
+    # Assuming job runs at SUMMARY_TIME Beijing Time
+    
+    now = get_now()
+    # Logic: if now is close to 00:00, we want previous day summary
+    # Or strict check: if hour < 12, assume it's early morning summary of previous day
     if now.hour < 12:
         target_date = now - timedelta(days=1)
     else:
@@ -208,9 +238,12 @@ async def send_daily_summary(context: ContextTypes.DEFAULT_TYPE):
     else:
         summary_text = f"📅 Summary for {date_str}:\n\n"
         for entry in entries:
-            # Parse timestamp to show only time
-            ts = datetime.fromisoformat(entry['timestamp'])
-            time_str = ts.strftime("%H:%M")
+            try:
+                # Parse timestamp
+                ts = datetime.fromisoformat(entry['timestamp'])
+                time_str = ts.strftime("%H:%M")
+            except:
+                time_str = "??"
             summary_text += f"⏰ {time_str}: {entry['content']}\n"
 
     await send_long_message(context.bot, ALLOWED_USER_ID, summary_text)
@@ -237,10 +270,10 @@ async def post_init(application: Application):
     # Add daily summary job
     try:
         sh, sm = map(int, SUMMARY_TIME.split(':'))
-        target_time = time(hour=sh, minute=sm)
+        target_time = time(hour=sh, minute=sm, tzinfo=timezone(BEIJING_TZ))
     except ValueError:
         logger.error("Invalid DAILY_SUMMARY_TIME format. Using default 00:00")
-        target_time = time(hour=0, minute=0)
+        target_time = time(hour=0, minute=0, tzinfo=timezone(BEIJING_TZ))
     
     application.job_queue.run_daily(
         send_daily_summary,
