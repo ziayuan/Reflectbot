@@ -5,11 +5,11 @@ After=network.target
 [Service]
 # Modify these to match your user and installation path
 User=ubuntu
-WorkingDirectory=/home/ubuntu/Reflect-30
-ExecStart=/usr/bin/python3 /home/ubuntu/Reflect-30/bot.py
+WorkingDirectory=/home/ubuntu/Reflectbot
+ExecStart=/usr/bin/python3 /home/ubuntu/Reflectbot/bot.py
 Restart=always
 RestartSec=10
-EnvironmentFile=/home/ubuntu/Reflect-30/.env
+EnvironmentFile=/home/ubuntu/Reflectbot/.env
 
 [Install]
 WantedBy=multi-user.target
