@@ -1,18 +1,24 @@
 [Unit]
-Description=Reflect-30 Telegram Bot
-After=network.target
+Description=Reflectbot hourly Telegram and Bark reminders
+Wants=network-online.target
+After=network-online.target
 
 [Service]
-# Modify these to match your user and installation path
-User=ubuntu
-WorkingDirectory=/home/ubuntu/Reflectbot
-# Use the python interpreter from the virtual environment
-ExecStart=/home/ubuntu/Reflectbot/venv/bin/python /home/ubuntu/Reflectbot/bot.py
+User=reflectbot
+Group=reflectbot
+WorkingDirectory=/opt/Reflectbot
+ExecStart=/opt/Reflectbot/venv/bin/python /opt/Reflectbot/bot.py
 Restart=always
 RestartSec=10
-EnvironmentFile=/home/ubuntu/Reflectbot/.env
-# Set timezone to Shanghai (Beijing Time)
+EnvironmentFile=/opt/Reflectbot/.env
 Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/Reflectbot
 
 [Install]
 WantedBy=multi-user.target

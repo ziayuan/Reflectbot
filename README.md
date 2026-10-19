@@ -1,148 +1,60 @@
-# Reflect-30 Telegram Bot
+# Reflectbot：每小时反思提醒
 
-Reflect-30 是一个每 30 分钟（可配置）检查你状态的 Telegram Bot，可以记录你的回复并在每天晚上发送总结。
+初始在启动后 60 分钟同时通过 Telegram 和 Bark 提醒；每次回复后，按回复时间往后推 60 分钟。到时未回复，每隔 1 分钟提醒一次，总共 5 次；仍未回复，从第 5 次起再等 60 分钟开始下一轮。回复请发给 Telegram Bot，记录保存在 `diary.json`。Bark 通知可点击打开 Telegram Bot。两个渠道独立发送，一个失败不会阻止另一个。
 
-## 功能
+北京时间 23:30–09:30 免打扰，00:00 汇总前一天的记录并发送到两个渠道。`/pause`、`/continue`、`/stop` 同时控制两个渠道的定时提醒。
 
-1.  **定时唤醒**：每 30 分钟发送消息：“zy，过去 30 分钟你在干什么？有什么感想？”
-    *   *休眠模式*：在配置的时间段（默认 23:30 - 09:30）内不会打扰。
-2.  **记录**：你的回复会被自动保存到 `diary.json`，带有时间戳。
-3.  **每日总结**：每天指定时间（默认 00:00）发送当天的记录汇总。
-4.  **指令控制**：
-    *   `/pause`：暂停定时消息。
-    *   `/continue`：继续定时消息。
-    *   `/stop`：停止（即暂停）。
+## dj 部署
 
-## 安装与运行
+安装位置 `/opt/Reflectbot`，服务名 `reflect30`，使用专用用户 `reflectbot`。创建 Python 3.11+ 虚拟环境 `venv`，安装 `requirements.txt`，将 `.env.example` 复制为 `.env` 并填写：
 
-### 1. 安装依赖
+- `TELEGRAM_BOT_TOKEN`：此机器人的 Token。
+- `ALLOWED_USER_ID`：你的 Telegram 数字 User ID（部署时必填）。
+- `BARK_URL`：Bark App 中的完整地址 `https://api.day.app/设备Key/`，也支持自建 HTTPS 服务。
+- `BARK_OPEN_URL`：可选，`https://t.me/机器人用户名`。
 
-确保安装了 Python 3.8+。
+首次使用须在 Telegram 中向机器人发送 `/start`。不要同时在多台机器轮询同一个 Bot。`.env` 和 `diary.json` 不提交到 Git。
 
 ```bash
-pip install -r requirements.txt
+chown -R reflectbot:reflectbot /opt/Reflectbot
+chmod 600 /opt/Reflectbot/.env
+cp reflect30.service /etc/systemd/system/reflect30.service
+systemctl daemon-reload
+systemctl enable --now reflect30
+systemctl status reflect30
+journalctl -u reflect30 -n 50
 ```
 
-### 2. 配置环境
+初始不是固定整点；例如 14:23 回复，下次在 15:23 提醒，未回复则在 15:24、15:25、15:26、15:27 继续提醒，再下一轮从 16:27 开始。调度每 5 秒检查一次。
 
-创建 `.env` 文件并填入你的 Telegram Bot Token 和你的 User ID。
+计时、当前轮次和暂停状态保存在 `reminder_state.json`，重启后恢复，不补发停机期间错过的多次提醒。免打扰期间到期的提醒顺延到免打扰结束，开启新一轮。`/continue` 后等待 60 分钟再提醒。每日汇总不受 `/pause` 影响。请勿将 `.env`、日记和计时状态文件提交到 Git。
+
+Bark 使用 [官方 REST API](https://github.com/Finb/bark-server/blob/master/docs/API_V2.md)。
+
+## 本地运行
 
 ```bash
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
 cp .env.example .env
+# 编辑 .env 后运行
+venv/bin/python bot.py
 ```
 
-编辑 `.env`：
-```
-TELEGRAM_BOT_TOKEN=你的BotToken
-ALLOWED_USER_ID=你的TelegramUserID
-```
+`config.json` 可调整提醒间隔、免打扰时间、每日总结时间和提醒文案。所有时间均按北京时间处理。
 
-> **如何获取 User ID?**
-> 发送消息给 `@userinfobot` 这里的 Bot，或者使用任意 ID 获取 Bot。如果不填 ID，你必须先发送 `/start` 让 Bot 知道你是谁（但在代码中最好还是配置好 ID 以确保重启后能主动发消息）。
+## Telegram 指令
 
-### 3. 修改自定义设置 (config.json)
+- `/start`：查看当前设置。
+- `/pause`、`/stop`：暂停定时提醒。
+- `/continue`、`/resume`：恢复定时提醒。
+- `/summary`：查看今天的记录。
+- `/summary YYYYMMDD`：查看指定日期的记录。
 
-你可以修改 `config.json` 来调整时间间隔、睡眠时间等：
+直接发送文字即可保存记录。每天的自动总结在两个渠道发送，手动 `/summary` 在 Telegram 中回复。
 
-```json
-{
-  "check_interval_minutes": 30,
-  "sleep_start_time": "23:30",
-  "sleep_end_time": "09:30",
-  "daily_summary_time": "00:00",
-  "prompt_message": "{name}，过去 {interval} 分钟你在干什么？有什么感想？",
-  "admin_name": "zy"
-}
-```
-
-
-### 4. 运行 Bot
-
-推荐使用 `run.sh` 脚本运行，它提供了自动重启功能，能有效防止网络断连导致的程序假死。
+## 验证
 
 ```bash
-chmod +x run.sh
-./run.sh
+venv/bin/python -m unittest discover -s tests -v
 ```
-
-或者使用原来的方式（不推荐长久运行）：
-
-```bash
-python bot.py
-```
-
-## 部署到服务器 (AWS EC2)与数据同步
-
-为了让 Bot 24小时稳定运行，且保证数据安全（避免服务器单点故障导致数据丢失），推荐使用 **AWS EC2 运行 Bot + 本地定时同步数据** 的方案。
-
-### 1. 服务器环境准备 (AWS EC2)
-
-1.  在 AWS 控制台启动一个 Ubuntu 或 Amazon Linux 实例。
-2.  **安全组 (Security Group)**：只需要开放 SSH (22) 端口，来源限制为你自己的 IP。
-3.  SSH 连接到服务器：
-    ```bash
-    ssh -i "your-key.pem" ubuntu@your-server-ip
-    ```
-4.  安装 Python 和 Git：
-    ```bash
-    sudo apt update
-    sudo apt install python3 python3-pip git -y
-    ```
-
-### 2. 部署代码
-
-在服务器上执行：
-
-```bash
-# 1. 克隆代码
-git clone https://github.com/ziayuan/Reflect-30.git
-cd Reflect-30
-
-# 2. 安装依赖
-pip3 install -r requirements.txt
-
-# 3. 配置 .env
-cp .env.example .env
-nano .env  # 填入你的 TELEGRAM_BOT_TOKEN 和 ALLOWED_USER_ID
-chmod 600 .env  # 保护隐私文件
-```
-
-### 3. 设置后台运行 (Systemd)
-
-使用仓库中提供的 `reflect30.service` 模板来配置系统服务，这样 Bot 会开机自启且崩溃自动重启。
-
-```bash
-# 1. 修改 service 文件中的路径和用户 (如果你的用户名不是 ubuntu 或路径不同)
-nano reflect30.service
-
-# 2. 复制到系统目录
-sudo cp reflect30.service /etc/systemd/system/
-
-# 3. 启动服务
-sudo systemctl daemon-reload
-sudo systemctl enable reflect30
-sudo systemctl start reflect30
-
-# 查看状态
-sudo systemctl status reflect30
-```
-
-### 4. 数据安全与同步 (在本地 Mac 操作)
-
-为了保证隐私和数据安全，建议定期将服务器上的 `diary.json` 同步回本地电脑。
-
-在你的 **本地 Mac** 上设置 `crontab` 定时任务：
-
-1.  打开定时任务编辑器：
-    ```bash
-    crontab -e
-    ```
-
-2.  添加以下行（例如每小时同步一次）：
-    ```bash
-    # 请替换 key 路径、服务器 IP 和本地代码路径
-    0 * * * * scp -i /path/to/your-key.pem ubuntu@your-server-ip:/home/ubuntu/Reflect-30/diary.json /Users/ziyuan/Code/Reflect-30/diary.json
-    ```
-
-这样，即使服务器发生故障，你的日记数据始终在本地有一份最新的备份。
-

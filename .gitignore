@@ -13,3 +13,7 @@ diary.json
 # IDE
 .vscode/
 .idea/
+
+# Persisted reminder deadlines
+reminder_state.json
+reminder_state.json.tmp
