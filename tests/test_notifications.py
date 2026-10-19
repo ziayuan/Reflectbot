@@ -86,6 +86,9 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
         args = client.post.call_args
         self.assertEqual(args.args[0], 'https://bark.example/push')
         self.assertEqual(args.kwargs['json']['device_key'], 'key')
+        self.assertEqual(args.kwargs['json']['level'], 'timeSensitive')
+        self.assertEqual(args.kwargs['json']['sound'], 'minuet')
+        self.assertNotIn('call', args.kwargs['json'])
         self.assertEqual(args.kwargs['json']['url'], 'https://t.me/example_bot')
 
     async def test_summary_uses_previous_beijing_day_and_both_channels(self):

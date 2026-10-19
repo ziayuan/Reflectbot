@@ -29,6 +29,8 @@ journalctl -u reflect30 -n 50
 
 计时、当前轮次和暂停状态保存在 `reminder_state.json`，重启后恢复，不补发停机期间错过的多次提醒。免打扰期间到期的提醒顺延到免打扰结束，开启新一轮。`/continue` 后等待 60 分钟再提醒。每日汇总不受 `/pause` 影响。请勿将 `.env`、日记和计时状态文件提交到 Git。
 
+Bark 通知设置为时效性通知（`timeSensitive`），使用 `minuet` 铃声。请在 iPhone 的 Bark 通知设置中允许声音和时效性通知；专注模式也需允许时效性通知。实际响铃仍受手机静音和音量设置影响。
+
 Bark 使用 [官方 REST API](https://github.com/Finb/bark-server/blob/master/docs/API_V2.md)。
 
 ## 本地运行

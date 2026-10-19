@@ -128,6 +128,8 @@ async def send_bark(title, body):
     payload = {
         "device_key": unquote(device_key),
         "title": title, "body": body, "group": "Reflectbot",
+        "level": "timeSensitive",
+        "sound": "minuet",
     }
     if BARK_OPEN_URL:
         payload["url"] = BARK_OPEN_URL
