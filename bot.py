@@ -41,7 +41,7 @@ config = load_config()
 # Constants from config
 CHECK_INTERVAL = config.get('check_interval_minutes', 60)
 REMINDER_ATTEMPTS = config.get('reminder_attempts', 5)
-RETRY_SECONDS = config.get('reminder_retry_seconds', 60)
+RETRY_SECONDS = config.get('reminder_retry_seconds', 300)
 SLEEP_START = config.get('sleep_start_time', "23:30")
 SLEEP_END = config.get('sleep_end_time', "09:30")
 SUMMARY_TIME = config.get('daily_summary_time', "00:00")

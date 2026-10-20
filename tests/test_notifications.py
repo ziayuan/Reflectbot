@@ -34,6 +34,8 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(app.job_queue.run_repeating.call_args.kwargs['first'], 1)
         self.assertEqual(app.job_queue.run_daily.call_args.kwargs['time'].utcoffset(), timedelta(hours=8))
         self.assertEqual(json.loads((ROOT / 'config.json').read_text())['check_interval_minutes'], 60)
+        self.assertEqual(json.loads((ROOT / 'config.json').read_text())['reminder_retry_seconds'], 300)
+        self.assertEqual(bot.RETRY_SECONDS, 300)
 
     async def test_schedule_controls_both_channels(self):
         context = SimpleNamespace(bot=MagicMock())

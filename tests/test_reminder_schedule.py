@@ -17,11 +17,11 @@ class Timing(unittest.TestCase):
         self.assertFalse(self.state.take_due(self.now + timedelta(minutes=59)))
         first = self.now + timedelta(hours=1)
         for index in range(5):
-            when = first + timedelta(minutes=index)
+            when = first + timedelta(minutes=index * 5)
             self.assertTrue(self.state.take_due(when))
-            self.assertFalse(self.state.take_due(when + timedelta(seconds=59)))
-        self.assertEqual(self.state.next_due, first + timedelta(minutes=64))
-        self.assertTrue(self.state.take_due(first + timedelta(minutes=64)))
+            self.assertFalse(self.state.take_due(when + timedelta(seconds=299)))
+        self.assertEqual(self.state.next_due, first + timedelta(minutes=80))
+        self.assertTrue(self.state.take_due(first + timedelta(minutes=80)))
 
     def test_reply_cancels_burst_and_moves_deadline(self):
         self.state.take_due(self.now + timedelta(hours=1))
@@ -41,7 +41,7 @@ class Timing(unittest.TestCase):
         self.state.replied(self.now)
         self.state.take_due(self.now + timedelta(hours=1))
         restored = ReminderSchedule(self.path, self.now + timedelta(minutes=61))
-        self.assertEqual(restored.next_due, self.now + timedelta(minutes=61))
+        self.assertEqual(restored.next_due, self.now + timedelta(minutes=65))
         self.assertEqual(restored.sent, 1)
         self.assertEqual(restored.last_reply, self.now)
 
@@ -54,15 +54,15 @@ class Timing(unittest.TestCase):
 
     def test_quiet_hours_stop_burst_and_morning_starts_fresh(self):
         self.state.take_due(self.now + timedelta(hours=1))
-        self.assertFalse(self.state.take_due(self.now + timedelta(minutes=61), sleeping=True))
+        self.assertFalse(self.state.take_due(self.now + timedelta(minutes=65), sleeping=True))
         self.assertEqual(self.state.sent, 0)
         morning = self.now + timedelta(days=1)
         self.assertTrue(self.state.take_due(morning, sleeping=False))
-        self.assertEqual(self.state.next_due, morning + timedelta(minutes=1))
+        self.assertEqual(self.state.next_due, morning + timedelta(minutes=5))
         self.assertEqual(self.state.sent, 1)
 
     def test_downtime_sends_once_without_replaying_missed_reminders(self):
         late = self.now + timedelta(days=1)
         self.assertTrue(self.state.take_due(late))
         self.assertFalse(self.state.take_due(late))
-        self.assertEqual(self.state.next_due, late + timedelta(minutes=1))
+        self.assertEqual(self.state.next_due, late + timedelta(minutes=5))

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 class ReminderSchedule:
-    def __init__(self, path, now, interval_minutes=60, attempts=5, retry_seconds=60):
+    def __init__(self, path, now, interval_minutes=60, attempts=5, retry_seconds=300):
         self.path = Path(path)
         self.interval = timedelta(minutes=interval_minutes)
         self.attempts = attempts

@@ -6,5 +6,5 @@
   "prompt_message": "{name}，过去 {interval} 分钟你在干什么？有什么感想？",
   "admin_name": "zy",
   "reminder_attempts": 5,
-  "reminder_retry_seconds": 60
+  "reminder_retry_seconds": 300
 }
